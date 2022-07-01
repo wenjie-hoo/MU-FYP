@@ -36,7 +36,7 @@ outPath = localPath + localBranch
 # java -mx4g -cp "*" edu.stanford.nlp.pipeline.StanfordCoreNLPServer -port 9000 -timeout 15000
 
 # nlp = StanfordCoreNLP(r'/Users/clarkhu/Downloads/fyp/stanford-corenlp-4.2.2', lang='en')
-nlp  =  StanfordCoreNLP ( 'http://localhost' , port = 9000 )
+nlp = StanfordCoreNLP('http://localhost', port=9000)
 # import stanza
 # from stanza.server import CoreNLPClient
 # stanza.download('en')
@@ -52,7 +52,7 @@ data = []
 document_triples = []
 causal_triples = []
 causal_triples_v2 = []
-causal_triples_list=[]
+causal_triples_list = []
 sentence_triples = []
 sentence_triplesPP = []
 
@@ -61,7 +61,6 @@ fullDocument = ""
 global skip_over_previous_results
 skip_over_previous_results = False
 
-# NN 名词单数，NNS名词复数，PRP人称单代词，PRP$ 物主代词
 concept_tags = {'NN', 'NNS', 'PRP', 'PRP$'}
 relation_tags = {'VB'}  # 动词基本形式 Verb, base form
 illegal_concept_nodes = {
@@ -70,6 +69,7 @@ illegal_concept_nodes = {
 # causal_words_list = ['because', 'cause', 'caused', 'unless',
 #                      'and', 'or', 'Therefore', 'as a result', 'consequently']
 vb_tags_list = ['VB', 'VBD', 'VBG', 'VBN', 'VBP', 'VBZ']
+
 
 def trim_concept_chain(text):  # very long chains only, phrases
     if vbse:
@@ -85,13 +85,14 @@ def trim_concept_chain(text):  # very long chains only, phrases
     return ret
 # trim_concept_chain('cloth_captured_from_a_flapping_flag_it')
 
+
 def processDocument(text):  # full document
     # print('text:',text)
     global sentence_number
     global sentence_triples
     global sentence_triplesPP
     global set_of_raw_concepts
-    list_of_sentences = sent_tokenize(text)  # 分割句子，包括标点符号，存为数组
+    list_of_sentences = sent_tokenize(text)
     # print("********************")
     # print(list_of_sentences)
     # print("********************")
@@ -100,11 +101,11 @@ def processDocument(text):  # full document
 # memory='16G') a
 # s client:
     # ann = client.annotate(text)
-    sents = sent_tokenize(text)  # 分词 分割后的句子,数组，单个句子,
+    sents = sent_tokenize(text)
     # print('sents:',sents)
     output = nlp.annotate(text, properties={
-        'annotators': 'tokenize, ssplit, parse, dcoref', 
-        'outputFormat': 'json',})
+        'annotators': 'tokenize, ssplit, parse, dcoref',
+        'outputFormat': 'json', })
     # print(type(nlp.annotate(text, properties={
     #     'annotators': 'tokenize, ssplit, parse, dcoref', 'outputFormat': 'json'})))
     # ff_test = json.dumps(output)
@@ -115,12 +116,12 @@ def processDocument(text):  # full document
         print("***** Timeout of the Stanford Parser *****")
         list_of_sentences = []  # No parsed output to process
         pass
-    
+
     if output == 'Could not handle incoming annotation':
         print("***** Could not handle incoming annotation *****")
         list_of_sentences = []  # No parsed output to process
         pass
-        
+
     # elif isinstance(output, dict):
     #     try:
     #         coref = output['corefs'] ## OCCASIONALY DODGY RESULTS - ??? finds no corefs????
@@ -128,7 +129,7 @@ def processDocument(text):  # full document
     #     except IndexError:
     #         coref = None
     #     # print('#####output',output)
-        
+
     elif type(output) is str or type(output) is unicode:
         # print('type of output:',type(output))
         try:
@@ -136,7 +137,7 @@ def processDocument(text):  # full document
             coref = output['corefs']
         except:
             coref = None
-            
+
     else:
         print("** Stanford Parser Error - type:", type(output), end="")
 
@@ -146,19 +147,16 @@ def processDocument(text):  # full document
         sentence_triplesPP = []
         sentence_number += 1  # 0
 
-        # print("\nSENT#", sentence_number, ":", sents[i].strip(), end="   ")#sents分割后的句子,数组，单个句子
+        # print("\nSENT#", sentence_number, ":", sents[i].strip(), end="   ")
         if sents[i][0:14] == "CR Categories:":    # skip keyword list.
             break
         try:
-            sent1 = output['sentences'][i]['parse']  # 解析出的parse句子
+            sent1 = output['sentences'][i]['parse']
         except IndexError:
             sent1 = None
         if sent1 is not None:
             try:
-                # print("###########coref:",coref)
-                # coref共指解析是查找引用文本中同一实体的所有表达式的任务
                 sent2 = CoreferenceResolution(coref, sent1)
-                # print(sent2)
             except IndexError:
                 sent2 = None
 
@@ -166,49 +164,46 @@ def processDocument(text):  # full document
         tree = ParentedTree.fromstring(sent2)
         tree_leaves = [x.lower() for x in tree.leaves() if isinstance(x, str)]
         tree_subtrees = tree.subtrees()
-        
         # sentenceOfword = nltk.tokenize.word_tokenize(list_of_sentences[i])
         # wordOftagged = nltk.pos_tag(sentenceOfword)
         # triggerWordList = findTriggerWords(wordOftagged)
         # causal_triples = findPreBack(triggerWordList)
-        
+
         order_vcv_list = findTriggerWords_v2(tree_leaves, tree_subtrees)
         causal_triples = findPreBack_v2(order_vcv_list)
-        # print('causal_triples_v2:',causal_triples_v2)
-        
+
         # causal_triples = findTriggerWords_v3(tree_leaves,tree_subtrees)
-        
+
         # causal_triples= findTriggerWords_v4(tree,tree_leaves)
-        
+
         Positions = getListPos(tree)  # 返回树中 子树的位置，结果为列表,（0，1）
         # print('Positions:',Positions)
 
         Positions_depths = getOrderPos(Positions)
         # print('#######Positions_depths',Positions_depths)
-        # 返回叶子的位置，列表
+
         Positions_leaves = getLeafPos(tree)
         # print('Positions_leaves:',Positions_leaves)
-        
+
         # print('**********Positions_leaves:',Positions_leaves,'************')
 
         # find the children of S
         # TODO implement new set of rule
         # locate all VP's in the sentence.
         posOfVP = findPosOfSpecificLabel(
-            tree, "VP", Positions_depths, Positions_leaves) 
+            tree, "VP", Positions_depths, Positions_leaves)
         # print("***Position of VP**** ", posOfVP, "*****")
-        
+
         posOfNN = findPosOfSpecificLabel(
-            tree, "NN", Positions_depths, Positions_leaves) 
+            tree, "NN", Positions_depths, Positions_leaves)
         # print('posOfNN:',posOfNN)
-        
+
         # NPs = list(tree.subtrees(filter=lambda x: x.label()=='NP'))
         # print('NPs:',NPs)
-        
+
         # VPs_str = [" ".join(vp.leaves()) for vp in list(tree.subtrees(filter=lambda x: x.label()=='VP'))]
         # print('VPs_str:',VPs_str)
-      
-            
+
         # print('NPs:',NPs)
         # print("***Position of IN**** ", posOfIN, "*****")
         # print('tree:',tree)
@@ -217,8 +212,7 @@ def processDocument(text):  # full document
         #     print('PinTree:',PinTree)
         #     T_child = findChildNodes(PinTree, i, Positions_depths)
         #     print("child ", T_child)
-        
-        
+
         ####################
         ######  VP  ########
         ####################
@@ -361,7 +355,6 @@ def processDocument(text):  # full document
                         for x in ListOfNP:
                             index.append(Positions.index(
                                 Positions_depths[x[0]][x[1]]))
-
                     if vbse:
                         print(index)
                     closest = 0
@@ -431,7 +424,6 @@ def processDocument(text):  # full document
                 Triple = []
                 Preposition = ""
                 NextStep = True
-
                 PosInTree = PositionInTree(z, Positions_depths)
                 child = findChildNodes(PosInTree, z, Positions_depths)
                 for x in child:
@@ -442,7 +434,6 @@ def processDocument(text):  # full document
                     else:
                         if vbse:
                             print("CheckLabel is False")
-
                 if NextStep:
                     Preposition = child[0]
                     Preposition = findLeavesFromNode(PositionInTree(
@@ -489,7 +480,7 @@ def processDocument(text):  # full document
                     # now that you have closest NP get the children
                     leaves = findLeavesFromNode(
                         Positions[closest], Positions_leaves)
-                    
+
                     # add the right most leaf to the triple
                     leafLabel = checkLabelLeaf(tree, leaves[len(leaves) - 1])
                     Triple.append(leafLabel)
@@ -597,14 +588,14 @@ def processDocument(text):  # full document
         # print('tree_leaves:', tree_leaves)
         print("sentence_triples: ", sentence_triples)
         print("sentence_triplesPP: ", sentence_triplesPP)
-        print('causal_triples:',causal_triples)
+        print('causal_triples:', causal_triples)
         # print('vb_list_v2:',vb_list)
         # print("causal_triples:", causal_triples)
         # print('causal_triples_v2:', causal_triples_v2)
         print('##############################')
-        
+
         tree.draw()  # show display parse tree
-        
+
         document_triples.append(sentence_triples)
         document_triples.append(sentence_triplesPP)
         # causal_triples_list.append([causal_triples_v2])
@@ -626,7 +617,7 @@ def generate_output_CSV_file(fileName):
     if vbse:
         print(testList)
     heading = [["NOUN", "VERB/PREP", "NOUN"]]
-    causal_heading=[["EFFECT", "CAUSAL_WORDS", "CAUSE"]]
+    causal_heading = [["EFFECT", "CAUSAL_WORDS", "CAUSE"]]
     with open(outPath + fileName+".dcorf.csv", 'w', encoding="utf8") as resultFile:
         write = csv.writer(resultFile, lineterminator='\n')
         write.writerows(heading)
@@ -636,6 +627,7 @@ def generate_output_CSV_file(fileName):
         write.writerows(causal_heading)
         write.writerows(causalList)
     return
+
 
 def processAllTextFiles():
     global inPath
@@ -668,13 +660,13 @@ def processAllTextFiles():
             print("Erro {}".format(err))
         #############
         # full_sentences = file.read()
-        
+
         # processDocument(full_sentences[0])
-            
+
         ##############################################################
         # '''
-        full_document = file.read()  # 读取文件中的字节
-        full_document_list = full_document.split()  # 以空格分割字节
+        full_document = file.read()
+        full_document_list = full_document.split()
         text_chunk_size = 400
         text_chunk_start = 0
         text_chunk_end = text_chunk_size
@@ -698,18 +690,18 @@ def processAllTextFiles():
                          ":" not in full_document_list[text_chunk_end]):  # split chunks @ full-stop, where reasonable
                         text_chunk_end -= 1
                         # '''
-        ##############################################################                
+        ##############################################################
         # uses documentSegment, documentTriples
-        
-        generate_output_CSV_file(fileName) # uses documentSegment, documentTriples
+
+        # uses documentSegment, documentTriples
+        generate_output_CSV_file(fileName)
         set_of_unique_concepts = set()
         for l in document_triples:
-            for a,b,c in l:
+            for a, b, c in l:
                 set_of_unique_concepts.add(a)
                 set_of_unique_concepts.add(c)
         print("CONCEPT COUNT", ",", fileName, ",", len(set_of_unique_concepts))
-        
+
+
 print("Type   processAllTextFiles()   to generate graphs from ", inPath)
 processAllTextFiles()
-# nlp.close()
-# os.system("ps -ef | grep Stanford | grep -v grep | awk '{print $2}' | xargs sudo kill -9")
